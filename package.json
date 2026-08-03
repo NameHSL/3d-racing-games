@@ -1,0 +1,21 @@
+{
+  "name": "mario-kart-react",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "3D 卡丁车竞速（马里奥赛车风格）— React + Three.js 实现",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "three": "^0.128.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.4.0"
+  }
+}

@@ -1,0 +1,103 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body, #root { width: 100%; height: 100%; overflow: hidden; background: #000;
+  font-family: "Trebuchet MS", "Microsoft YaHei", "PingFang SC", sans-serif;
+  -webkit-user-select: none; user-select: none; }
+#game-canvas { position: absolute; top: 0; left: 0; display: block; }
+
+.screen { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 30; }
+.hidden { display: none !important; }
+
+/* ===== 加载页 ===== */
+#loading-screen { background: linear-gradient(135deg, #1a1a2e, #16213e); color: #fff; flex-direction: column; gap: 20px; }
+.spinner { width: 60px; height: 60px; border: 6px solid rgba(255,255,255,.2); border-top-color: #ff4757; border-radius: 50%; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ===== 主菜单 ===== */
+#menu-screen { background: radial-gradient(ellipse at center, rgba(22,33,62,.55), rgba(10,12,30,.85)); color: #fff; }
+.menu-card { background: rgba(15,20,40,.82); border: 3px solid rgba(255,255,255,.15); border-radius: 22px;
+  padding: 38px 50px; text-align: center; backdrop-filter: blur(8px); box-shadow: 0 20px 60px rgba(0,0,0,.55); max-width: 560px; }
+.title { font-size: 52px; font-weight: 900; letter-spacing: 1px;
+  background: linear-gradient(180deg, #ffe66d, #ff4757); -webkit-background-clip: text; background-clip: text; color: transparent;
+  text-shadow: 0 4px 0 rgba(0,0,0,.25); line-height: 1; }
+.subtitle { font-size: 15px; color: #8ea0c8; letter-spacing: 4px; margin: 8px 0 26px; text-transform: uppercase; }
+.panel-label { font-size: 13px; color: #8ea0c8; margin-bottom: 10px; letter-spacing: 2px; text-transform: uppercase; }
+.controls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px; margin-bottom: 28px; text-align: left; font-size: 14px; color: #c8d4ee; }
+.controls-grid div { background: rgba(255,255,255,.05); padding: 8px 12px; border-radius: 8px; border-left: 3px solid #ff4757; }
+.controls-grid div:nth-child(even) { border-left-color: #3742fa; }
+.controls-grid b { color: #fff; }
+
+.diff-row { display: flex; gap: 10px; justify-content: center; margin-bottom: 26px; }
+.diff-btn { background: rgba(255,255,255,.07); color: #c8d4ee; border: 2px solid rgba(255,255,255,.12); padding: 9px 22px;
+  border-radius: 30px; font-size: 14px; font-weight: 700; cursor: pointer; transition: .15s; }
+.diff-btn:hover { background: rgba(255,255,255,.14); }
+.diff-btn.active { background: linear-gradient(180deg, #ff6b6b, #ff4757); border-color: #ff4757; color: #fff; }
+
+.big-btn { background: linear-gradient(180deg, #70a1ff, #3742fa); color: #fff; border: none; border-bottom: 5px solid #2a31b0;
+  padding: 16px 46px; font-size: 21px; font-weight: 900; border-radius: 40px; cursor: pointer; letter-spacing: 1px; transition: .1s;
+  box-shadow: 0 6px 0 rgba(0,0,0,.2); }
+.big-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 0 rgba(0,0,0,.2); }
+.big-btn:active { transform: translateY(3px); border-bottom-width: 2px; }
+.big-btn.secondary { background: linear-gradient(180deg, #778ca3, #4b5063); border-bottom-color: #2f3340; margin-left: 10px; font-size: 16px; padding: 14px 30px; }
+
+/* ===== HUD ===== */
+#hud { position: absolute; inset: 0; z-index: 20; pointer-events: none; }
+.hud-panel { position: absolute; background: rgba(10,15,35,.7); color: #fff; padding: 10px 18px; border-radius: 14px;
+  border: 2px solid rgba(255,255,255,.18); font-weight: 800; backdrop-filter: blur(4px); box-shadow: 0 4px 14px rgba(0,0,0,.35); }
+.hud-panel span { color: #ffe66d; }
+#lap-info { top: 18px; left: 18px; font-size: 18px; }
+#time-info { top: 18px; left: 50%; transform: translateX(-50%); font-size: 18px; }
+#pos-info { top: 18px; right: 18px; font-size: 22px; text-align: right; }
+
+#minimap { position: absolute; left: 18px; bottom: 18px; background: rgba(10,15,35,.6); border-radius: 14px;
+  border: 2px solid rgba(255,255,255,.18); }
+
+#speedometer { position: absolute; right: 22px; bottom: 22px; width: 150px; height: 150px; }
+#speed-val { position: absolute; bottom: 30px; left: 0; right: 0; text-align: center; color: #fff;
+  font-size: 44px; font-weight: 900; text-shadow: 0 2px 6px rgba(0,0,0,.6); }
+.speed-unit { position: absolute; bottom: 14px; left: 0; right: 0; text-align: center; color: #8ea0c8; font-size: 12px; letter-spacing: 2px; }
+
+/* 道具栏 */
+#item-slot { position: absolute; left: 208px; bottom: 34px; width: 74px; height: 74px;
+  background: rgba(10,15,35,.7); border: 3px solid rgba(255,255,255,.22); border-radius: 16px;
+  display: flex; align-items: center; justify-content: center; color: #fff; box-shadow: 0 4px 14px rgba(0,0,0,.35); }
+#item-slot .icon { font-size: 38px; line-height: 1; }
+#item-slot.has { border-color: #ffe66d; background: rgba(255,230,109,.18); animation: itemPulse 1s infinite alternate; }
+@keyframes itemPulse { to { box-shadow: 0 0 18px #ffe66d, 0 4px 14px rgba(0,0,0,.35); } }
+#item-slot .cap { position: absolute; bottom: -20px; left: 0; right: 0; text-align: center; font-size: 11px; color: #8ea0c8; letter-spacing: 1px; font-weight: 800; }
+/* 氮气槽 */
+#nitro-label { position: absolute; right: 200px; bottom: 166px; color: #70a1ff; font-size: 12px; letter-spacing: 2px; font-weight: 800; }
+#nitro-wrap { position: absolute; right: 202px; bottom: 34px; width: 24px; height: 128px;
+  background: rgba(10,15,35,.7); border: 2px solid rgba(255,255,255,.22); border-radius: 8px; overflow: hidden; }
+#nitro-fill { width: 100%; height: 0%; background: linear-gradient(0deg, #3742fa, #70a1ff); transition: height .08s; }
+#nitro-fill.ready { background: linear-gradient(0deg, #2ed573, #7bed9f); box-shadow: 0 0 14px #2ed573 inset; }
+#hit-flash { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 40%, rgba(255,71,87,.5)); opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 15; }
+#hit-flash.show { opacity: 1; }
+
+#boost-indicator { position: absolute; top: 38%; left: 50%; transform: translate(-50%,-50%); color: #ffe66d;
+  font-size: 46px; font-weight: 900; letter-spacing: 3px; text-shadow: 0 0 24px #ff4757, 0 4px 0 rgba(0,0,0,.3);
+  animation: pulse .25s infinite alternate; }
+@keyframes pulse { from { transform: translate(-50%,-50%) scale(1); } to { transform: translate(-50%,-50%) scale(1.12); } }
+
+#countdown { position: absolute; top: 42%; left: 50%; transform: translate(-50%,-50%); color: #fff;
+  font-size: 150px; font-weight: 900; text-shadow: 0 0 40px #ff4757, 0 8px 0 rgba(0,0,0,.4); z-index: 25; }
+#countdown.go { color: #7bed9f; text-shadow: 0 0 50px #2ed573, 0 8px 0 rgba(0,0,0,.4); font-size: 110px; }
+#countdown.pop { animation: pop .9s; }
+@keyframes pop { 0% { transform: translate(-50%,-50%) scale(.3); opacity: 0; } 30% { transform: translate(-50%,-50%) scale(1.15); opacity: 1; } 100% { transform: translate(-50%,-50%) scale(1); opacity: 1; } }
+
+#lap-message { position: absolute; top: 30%; left: 50%; transform: translate(-50%,-50%); color: #ffe66d;
+  font-size: 38px; font-weight: 900; text-shadow: 0 4px 0 rgba(0,0,0,.4); opacity: 0; transition: opacity .3s; z-index: 22; }
+#lap-message.show { opacity: 1; }
+
+/* ===== 结算 ===== */
+#results-screen { background: radial-gradient(ellipse at center, rgba(22,33,62,.7), rgba(10,12,30,.92)); color: #fff; flex-direction: column; gap: 18px; }
+#results-title { font-size: 48px; font-weight: 900; background: linear-gradient(180deg, #ffe66d, #ff4757);
+  -webkit-background-clip: text; background-clip: text; color: transparent; }
+#results-list { background: rgba(15,20,40,.7); border-radius: 16px; padding: 18px 26px; min-width: 380px; border: 2px solid rgba(255,255,255,.12); }
+.result-row { display: flex; justify-content: space-between; align-items: center; padding: 11px 6px; border-bottom: 1px solid rgba(255,255,255,.08); font-size: 18px; }
+.result-row:last-child { border-bottom: none; }
+.result-row.you { color: #ffe66d; font-weight: 900; }
+.result-rank { font-weight: 900; width: 40px; }
+.result-name { flex: 1; text-align: left; padding-left: 12px; }
+.result-time { color: #c8d4ee; }
+.row-btns { display: flex; gap: 10px; }
+.hint { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); color: rgba(255,255,255,.4); font-size: 12px; letter-spacing: 1px; z-index: 25; }
