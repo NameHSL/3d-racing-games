@@ -1,0 +1,1653 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D 卡丁车竞速 · Mario Kart Style</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #000;
+    font-family: "Trebuchet MS", "Microsoft YaHei", "PingFang SC", sans-serif;
+    -webkit-user-select: none; user-select: none; }
+  #game-canvas { position: absolute; top: 0; left: 0; display: block; }
+
+  .screen { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 30; }
+  .hidden { display: none !important; }
+
+  /* ===== 加载页 ===== */
+  #loading-screen { background: linear-gradient(135deg, #1a1a2e, #16213e); color: #fff; flex-direction: column; gap: 20px; }
+  .spinner { width: 60px; height: 60px; border: 6px solid rgba(255,255,255,.2); border-top-color: #ff4757; border-radius: 50%; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ===== 主菜单 ===== */
+  #menu-screen { background: radial-gradient(ellipse at center, rgba(22,33,62,.55), rgba(10,12,30,.85)); color: #fff; }
+  .menu-card { background: rgba(15,20,40,.82); border: 3px solid rgba(255,255,255,.15); border-radius: 22px;
+    padding: 38px 50px; text-align: center; backdrop-filter: blur(8px); box-shadow: 0 20px 60px rgba(0,0,0,.55); max-width: 560px; }
+  .title { font-size: 52px; font-weight: 900; letter-spacing: 1px;
+    background: linear-gradient(180deg, #ffe66d, #ff4757); -webkit-background-clip: text; background-clip: text; color: transparent;
+    text-shadow: 0 4px 0 rgba(0,0,0,.25); line-height: 1; }
+  .subtitle { font-size: 15px; color: #8ea0c8; letter-spacing: 4px; margin: 8px 0 26px; text-transform: uppercase; }
+  .panel-label { font-size: 13px; color: #8ea0c8; margin-bottom: 10px; letter-spacing: 2px; text-transform: uppercase; }
+  .controls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px; margin-bottom: 28px; text-align: left; font-size: 14px; color: #c8d4ee; }
+  .controls-grid div { background: rgba(255,255,255,.05); padding: 8px 12px; border-radius: 8px; border-left: 3px solid #ff4757; }
+  .controls-grid div:nth-child(even) { border-left-color: #3742fa; }
+  .controls-grid b { color: #fff; }
+
+  .diff-row { display: flex; gap: 10px; justify-content: center; margin-bottom: 26px; }
+  .diff-btn { background: rgba(255,255,255,.07); color: #c8d4ee; border: 2px solid rgba(255,255,255,.12); padding: 9px 22px;
+    border-radius: 30px; font-size: 14px; font-weight: 700; cursor: pointer; transition: .15s; }
+  .diff-btn:hover { background: rgba(255,255,255,.14); }
+  .diff-btn.active { background: linear-gradient(180deg, #ff6b6b, #ff4757); border-color: #ff4757; color: #fff; }
+
+  .big-btn { background: linear-gradient(180deg, #70a1ff, #3742fa); color: #fff; border: none; border-bottom: 5px solid #2a31b0;
+    padding: 16px 46px; font-size: 21px; font-weight: 900; border-radius: 40px; cursor: pointer; letter-spacing: 1px; transition: .1s;
+    box-shadow: 0 6px 0 rgba(0,0,0,.2); }
+  .big-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 0 rgba(0,0,0,.2); }
+  .big-btn:active { transform: translateY(3px); border-bottom-width: 2px; }
+  .big-btn.secondary { background: linear-gradient(180deg, #778ca3, #4b5063); border-bottom-color: #2f3340; margin-left: 10px; font-size: 16px; padding: 14px 30px; }
+
+  /* ===== HUD ===== */
+  #hud { position: absolute; inset: 0; z-index: 20; pointer-events: none; }
+  .hud-panel { position: absolute; background: rgba(10,15,35,.7); color: #fff; padding: 10px 18px; border-radius: 14px;
+    border: 2px solid rgba(255,255,255,.18); font-weight: 800; backdrop-filter: blur(4px); box-shadow: 0 4px 14px rgba(0,0,0,.35); }
+  .hud-panel span { color: #ffe66d; }
+  #lap-info { top: 18px; left: 18px; font-size: 18px; }
+  #time-info { top: 18px; left: 50%; transform: translateX(-50%); font-size: 18px; }
+  #pos-info { top: 18px; right: 18px; font-size: 22px; text-align: right; }
+
+  #minimap { position: absolute; left: 18px; bottom: 18px; background: rgba(10,15,35,.6); border-radius: 14px;
+    border: 2px solid rgba(255,255,255,.18); }
+
+  #speedometer { position: absolute; right: 22px; bottom: 22px; width: 150px; height: 150px; }
+  #speed-val { position: absolute; bottom: 30px; left: 0; right: 0; text-align: center; color: #fff;
+    font-size: 44px; font-weight: 900; text-shadow: 0 2px 6px rgba(0,0,0,.6); }
+  .speed-unit { position: absolute; bottom: 14px; left: 0; right: 0; text-align: center; color: #8ea0c8; font-size: 12px; letter-spacing: 2px; }
+
+  /* 道具栏 */
+  #item-slot { position: absolute; left: 208px; bottom: 34px; width: 74px; height: 74px;
+    background: rgba(10,15,35,.7); border: 3px solid rgba(255,255,255,.22); border-radius: 16px;
+    display: flex; align-items: center; justify-content: center; color: #fff; box-shadow: 0 4px 14px rgba(0,0,0,.35); }
+  #item-slot .icon { font-size: 38px; line-height: 1; }
+  #item-slot.has { border-color: #ffe66d; background: rgba(255,230,109,.18); animation: itemPulse 1s infinite alternate; }
+  @keyframes itemPulse { to { box-shadow: 0 0 18px #ffe66d, 0 4px 14px rgba(0,0,0,.35); } }
+  #item-slot .cap { position: absolute; bottom: -20px; left: 0; right: 0; text-align: center; font-size: 11px; color: #8ea0c8; letter-spacing: 1px; font-weight: 800; }
+  /* 氮气槽 */
+  #nitro-label { position: absolute; right: 200px; bottom: 166px; color: #70a1ff; font-size: 12px; letter-spacing: 2px; font-weight: 800; }
+  #nitro-wrap { position: absolute; right: 202px; bottom: 34px; width: 24px; height: 128px;
+    background: rgba(10,15,35,.7); border: 2px solid rgba(255,255,255,.22); border-radius: 8px; overflow: hidden; }
+  #nitro-fill { width: 100%; height: 0%; background: linear-gradient(0deg, #3742fa, #70a1ff); transition: height .08s; }
+  #nitro-fill.ready { background: linear-gradient(0deg, #2ed573, #7bed9f); box-shadow: 0 0 14px #2ed573 inset; }
+  #hit-flash { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 40%, rgba(255,71,87,.5)); opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 15; }
+  #hit-flash.show { opacity: 1; }
+
+  #boost-indicator { position: absolute; top: 38%; left: 50%; transform: translate(-50%,-50%); color: #ffe66d;
+    font-size: 46px; font-weight: 900; letter-spacing: 3px; text-shadow: 0 0 24px #ff4757, 0 4px 0 rgba(0,0,0,.3);
+    animation: pulse .25s infinite alternate; }
+  @keyframes pulse { from { transform: translate(-50%,-50%) scale(1); } to { transform: translate(-50%,-50%) scale(1.12); } }
+
+  #countdown { position: absolute; top: 42%; left: 50%; transform: translate(-50%,-50%); color: #fff;
+    font-size: 150px; font-weight: 900; text-shadow: 0 0 40px #ff4757, 0 8px 0 rgba(0,0,0,.4); }
+  #countdown.go { color: #7bed9f; text-shadow: 0 0 50px #2ed573, 0 8px 0 rgba(0,0,0,.4); font-size: 110px; }
+  #countdown.pop { animation: pop .9s; }
+  @keyframes pop { 0% { transform: translate(-50%,-50%) scale(.3); opacity: 0; } 30% { transform: translate(-50%,-50%) scale(1.15); opacity: 1; } 100% { transform: translate(-50%,-50%) scale(1); opacity: 1; } }
+
+  #lap-message { position: absolute; top: 30%; left: 50%; transform: translate(-50%,-50%); color: #ffe66d;
+    font-size: 38px; font-weight: 900; text-shadow: 0 4px 0 rgba(0,0,0,.4); opacity: 0; transition: opacity .3s; }
+  #lap-message.show { opacity: 1; }
+
+  /* ===== 结算 ===== */
+  #results-screen { background: radial-gradient(ellipse at center, rgba(22,33,62,.7), rgba(10,12,30,.92)); color: #fff; flex-direction: column; gap: 18px; }
+  #results-title { font-size: 48px; font-weight: 900; background: linear-gradient(180deg, #ffe66d, #ff4757);
+    -webkit-background-clip: text; background-clip: text; color: transparent; }
+  #results-list { background: rgba(15,20,40,.7); border-radius: 16px; padding: 18px 26px; min-width: 380px; border: 2px solid rgba(255,255,255,.12); }
+  .result-row { display: flex; justify-content: space-between; align-items: center; padding: 11px 6px; border-bottom: 1px solid rgba(255,255,255,.08); font-size: 18px; }
+  .result-row:last-child { border-bottom: none; }
+  .result-row.you { color: #ffe66d; font-weight: 900; }
+  .result-rank { font-weight: 900; width: 40px; }
+  .result-name { flex: 1; text-align: left; padding-left: 12px; }
+  .result-time { color: #c8d4ee; }
+  .row-btns { display: flex; gap: 10px; }
+  .hint { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); color: rgba(255,255,255,.4); font-size: 12px; letter-spacing: 1px; z-index: 25; }
+</style>
+</head>
+<body>
+<canvas id="game-canvas"></canvas>
+
+<!-- 加载页 -->
+<div id="loading-screen" class="screen">
+  <div class="spinner"></div>
+  <div style="font-size:18px;letter-spacing:2px;">正在构建赛道…</div>
+</div>
+
+<!-- 主菜单 -->
+<div id="menu-screen" class="screen hidden">
+  <div class="menu-card">
+    <div class="title">3D 卡丁车竞速</div>
+    <div class="subtitle">Mario Kart Style Racing</div>
+    <div class="panel-label">操作说明</div>
+    <div class="controls-grid">
+      <div><b>↑ / W</b> 加速</div>
+      <div><b>↓ / S</b> 刹车 / 倒车</div>
+      <div><b>← → / A D</b> 转向</div>
+      <div><b>空格</b> 漂移（过弯更灵活）</div>
+      <div><b>R</b> 重置回赛道</div>
+      <div><b>ESC</b> 暂停 / 菜单</div>
+      <div><b>Shift</b> 使用道具</div>
+      <div><b>Ctrl</b> 释放氮气（漂移积攒）</div>
+    </div>
+    <div class="panel-label">AI 难度</div>
+    <div class="diff-row">
+      <button class="diff-btn" data-diff="easy">简单</button>
+      <button class="diff-btn active" data-diff="normal">普通</button>
+      <button class="diff-btn" data-diff="hard">困难</button>
+    </div>
+    <button id="start-btn" class="big-btn">开始比赛</button>
+  </div>
+</div>
+
+<!-- HUD -->
+<div id="hud" class="hidden">
+  <div id="lap-info" class="hud-panel">第 <span id="lap-num">1</span> / <span id="lap-total">3</span> 圈</div>
+  <div id="time-info" class="hud-panel">用时 <span id="time-val">0:00.0</span></div>
+  <div id="pos-info" class="hud-panel"><span id="pos-val">1</span> <span style="color:#8ea0c8;font-size:14px;">/ <span id="pos-total">4</span></span></div>
+  <canvas id="minimap" width="170" height="170"></canvas>
+  <div id="speedometer">
+    <svg width="150" height="150" viewBox="0 0 150 150">
+      <path d="M 22 118 A 60 60 0 1 1 128 118" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="10" stroke-linecap="round"/>
+      <path id="speed-arc" d="M 22 118 A 60 60 0 1 1 128 118" fill="none" stroke="url(#sg)" stroke-width="10" stroke-linecap="round" stroke-dasharray="0 999"/>
+      <defs><linearGradient id="sg" x1="0" x2="1"><stop offset="0" stop-color="#7bed9f"/><stop offset=".6" stop-color="#ffe66d"/><stop offset="1" stop-color="#ff4757"/></linearGradient></defs>
+    </svg>
+    <div id="speed-val">0</div>
+    <div class="speed-unit">KM/H</div>
+  </div>
+  <div id="nitro-label">N₂O 氮气</div>
+  <div id="nitro-wrap"><div id="nitro-fill"></div></div>
+  <div id="item-slot"><span class="cap">道具</span></div>
+  <div id="hit-flash"></div>
+  <div id="boost-indicator" class="hidden">BOOST!</div>
+  <div id="countdown" class="hidden"></div>
+  <div id="lap-message"></div>
+</div>
+
+<!-- 结算 -->
+<div id="results-screen" class="screen hidden">
+  <h2 id="results-title">完赛！</h2>
+  <div id="results-list"></div>
+  <div class="row-btns">
+    <button id="restart-btn" class="big-btn">再来一局</button>
+    <button id="menu-btn" class="big-btn secondary">返回菜单</button>
+  </div>
+</div>
+
+<div id="pause-screen" class="screen hidden">
+  <div class="menu-card" style="text-align:center;">
+    <div class="title" style="font-size:44px;">已暂停</div>
+    <p style="color:#c8d4ee;margin:22px 0;letter-spacing:1px;">按 ESC 继续比赛</p>
+    <div class="row-btns" style="justify-content:center;">
+      <button id="resume-btn" class="big-btn">继续比赛</button>
+      <button id="quit-btn" class="big-btn secondary">放弃返回菜单</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+"use strict";
+(function () {
+
+  // ============================================================
+  //  工具函数
+  // ============================================================
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  // 角度差（-PI..PI），用于平滑转向
+  function angleDiff(a, b) {
+    let d = a - b;
+    while (d > Math.PI) d -= Math.PI * 2;
+    while (d < -Math.PI) d += Math.PI * 2;
+    return d;
+  }
+  function formatTime(sec) {
+    if (sec == null || !isFinite(sec)) return "--:--";
+    const m = Math.floor(sec / 60);
+    const s = sec - m * 60;
+    return m + ":" + s.toFixed(1).padStart(4, "0");
+  }
+
+  // ============================================================
+  //  游戏配置
+  // ============================================================
+  const CFG = {
+    totalLaps: 3,
+    roadWidth: 18,
+    // 物理
+    maxSpeed: 60,
+    boostSpeed: 94,
+    accel: 48,
+    brake: 78,
+    reverseSpeed: 22,
+    drag: 0.42,            // 自然空气阻力
+    rollFriction: 3.5,     // 滚动摩擦（每秒衰减）
+    turnRate: 2.95,        // 最大转向速率（rad/s）
+    driftTurnBoost: 1.62,  // 漂移转向倍率
+    driftVisualMax: 0.55,  // 视觉漂移最大角度
+    steerLerp: 0.20,       // 转向输入平滑系数（越大越灵敏）
+    grassMaxSpeed: 0.42,   // 草地最高速度倍率
+    grassDrag: 3.0,        // 草地额外摩擦
+    // AI
+    aiBase: 0.93,          // AI油门基础
+    // 镜头
+    camDist: 9.5,
+    camHeight: 4.6,
+    camLookAhead: 7,
+    // 起跑网格
+    gridCount: 4,
+    // 道具 / 氮气
+    itemBoxRespawn: 7,     // 道具箱重生秒数
+    turboSpeed: 112,       // 道具「氮气瓶」极速（最强）
+    nitroSpeed: 96,        // 氮气槽释放极速
+    slowFactor: 0.4,       // 被击中减速倍率
+    slowTime: 2.6,         // 被击中减速时长
+    spinTime: 0.9,         // 被击中打转时长
+    shieldTime: 6,         // 护盾时长
+    nitroMax: 100,
+    nitroDriftRate: 32,    // 漂移每秒积累
+    nitroReleaseTime: 1.3, // 氮气槽释放持续
+    missileSpeed: 82,
+    missileTurn: 3.2,
+    mineLife: 18
+  };
+
+  // 道具池（氮气权重更高）
+  const ITEM_POOL = ["nitro", "nitro", "missile", "mine", "shield"];
+  const ITEM_INFO = {
+    nitro:   { icon: "💨", name: "氮气瓶" },
+    missile: { icon: "🚀", name: "追踪弹" },
+    mine:    { icon: "💣", name: "地雷" },
+    shield:  { icon: "🛡️", name: "护盾" }
+  };
+
+  const DIFF = {
+    easy:   { aiSpeed: 0.86, aiAgg: 0.9,  names: ["小蓝", "阿绿", "黄宝"] },
+    normal: { aiSpeed: 0.95, aiAgg: 1.0,  names: ["小蓝", "阿绿", "黄宝"] },
+    hard:   { aiSpeed: 1.04, aiAgg: 1.08, names: ["蓝魔", "绿影", "金箭"] }
+  };
+
+  // 车手配色（玩家始终红色）
+  const KART_COLORS = [
+    { name: "你",   main: 0xff4757, accent: 0xffffffff, dark: 0xc0392b }, // 玩家 红
+    { name: "AI1",  main: 0x3742fa, accent: 0xffffff,   dark: 0x1e2bd1 }, // 蓝
+    { name: "AI2",  main: 0x2ed573, accent: 0xffffff,   dark: 0x1f9b54 }, // 绿
+    { name: "AI3",  main: 0xffd93b, accent: 0x5a4a00,   dark: 0xc9a90f }  // 黄
+  ];
+
+  // ============================================================
+  //  全局状态
+  // ============================================================
+  let scene, camera, renderer, clock;
+  let gameState = "loading"; // loading / menu / countdown / racing / finished
+  let difficulty = "normal";
+  let raceTime = 0;
+  let countdownTimer = 0;
+  let countdownPhase = 0;     // 0..3 (3,2,1) , 4 = GO
+  const track = {};           // 赛道数据
+  let karts = [];             // 所有车手
+  let player = null;
+  let boostPads = [];         // 加速带 {mesh, t, pos, side}
+  let itemBoxes = [];         // 道具箱
+  let projectiles = [];       // 飞行中的导弹
+  let mines = [];             // 场上的地雷
+  let menuAngle = 0;          // 菜单环绕相机角度
+  const keys = {};
+  let paused = false;
+
+  // DOM
+  const $ = (id) => document.getElementById(id);
+  const dom = {};
+
+  // ============================================================
+  //  音频（Web Audio，惰性初始化）
+  // ============================================================
+  const audio = {
+    ctx: null, engineOsc: null, engineGain: null, master: null,
+    init() {
+      if (this.ctx) return;
+      try {
+        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        this.master = this.ctx.createGain();
+        this.master.gain.value = 0.5;
+        this.master.connect(this.ctx.destination);
+        // 引擎：锯齿波 + 低通
+        this.engineOsc = this.ctx.createOscillator();
+        this.engineOsc.type = "sawtooth";
+        this.engineOsc.frequency.value = 60;
+        const lp = this.ctx.createBiquadFilter();
+        lp.type = "lowpass"; lp.frequency.value = 700;
+        this.engineGain = this.ctx.createGain();
+        this.engineGain.gain.value = 0;
+        this.engineOsc.connect(lp); lp.connect(this.engineGain); this.engineGain.connect(this.master);
+        this.engineOsc.start();
+      } catch (e) { /* 忽略音频错误 */ }
+    },
+    setEngine(speedFrac, on) {
+      if (!this.ctx) return;
+      const t = this.ctx.currentTime;
+      const target = on ? (70 + speedFrac * 220) : 50;
+      const vol = on ? 0.06 + speedFrac * 0.10 : 0;
+      this.engineOsc.frequency.setTargetAtTime(target, t, 0.08);
+      this.engineGain.gain.setTargetAtTime(vol, t, 0.08);
+    },
+    blip(freq, dur, type, vol) {
+      if (!this.ctx) return;
+      const o = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      o.type = type || "square"; o.frequency.value = freq;
+      g.gain.value = vol || 0.2;
+      o.connect(g); g.connect(this.master);
+      const t = this.ctx.currentTime;
+      g.gain.setValueAtTime(g.gain.value, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      o.start(t); o.stop(t + dur);
+    },
+    boost() { this.blip(900, 0.25, "sawtooth", 0.18); },
+    count() { this.blip(440, 0.18, "square", 0.22); },
+    go() { this.blip(880, 0.4, "square", 0.26); },
+    lap() { this.blip(660, 0.12, "square", 0.2); setTimeout(() => this.blip(880, 0.16, "square", 0.2), 110); }
+  };
+
+  // ============================================================
+  //  初始化 Three.js
+  // ============================================================
+  function initThree() {
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x9ed8ff);
+    scene.fog = new THREE.Fog(0x9ed8ff, 300, 720);
+
+    camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 1500);
+    camera.position.set(0, 60, 80);
+
+    renderer = new THREE.WebGLRenderer({ canvas: $("game-canvas"), antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    // 灯光
+    const hemi = new THREE.HemisphereLight(0xcfeeff, 0x4a7a3a, 0.85);
+    scene.add(hemi);
+    const sun = new THREE.DirectionalLight(0xfff4e0, 1.05);
+    sun.position.set(80, 160, 60);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.camera.near = 10; sun.shadow.camera.far = 720;
+    sun.shadow.camera.left = -280; sun.shadow.camera.right = 280;
+    sun.shadow.camera.top = 280; sun.shadow.camera.bottom = -280;
+    sun.shadow.bias = -0.0004;
+    scene.add(sun);
+    const amb = new THREE.AmbientLight(0xffffff, 0.25);
+    scene.add(amb);
+
+    clock = new THREE.Clock();
+    window.addEventListener("resize", onResize);
+  }
+
+  function onResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  // ============================================================
+  //  赛道构建
+  // ============================================================
+  // 控制点（闭合环形赛道，y 为高低起伏；收尾段从西北平滑接入起跑直道）
+  const TRACK_POINTS = [
+    [   0,  0.0,    0],   // 起跑线 平地
+    [  60,  2.0,   -8],   // 缓上坡出起
+    [ 115,  6.5,  -45],   // 上坡入弯
+    [ 150, 10.5, -100],   // 坡顶急弯（东扩）
+    [ 140,  7.0, -155],   // 下坡
+    [  85,  3.0, -185],   // 低点
+    [  20,  0.8, -180],   // 谷底
+    [ -40,  4.2, -200],   // 上坡（南扩）
+    [-105,  9.0, -210],   // 坡顶大弯
+    [-170, 12.0, -175],   // 最高点
+    [-200,  8.5, -115],   // 下坡（西扩）
+    [-185,  4.2,  -55],   // 继续下坡
+    [-140,  1.4,  -5],    // 低点
+    [-100,  0.0,  30],    // 谷底接草地
+    [ -60,  3.5,  52],    // 上坡
+    [ -30,  7.5,  58],    // 坡顶小弯（发夹）
+    [ -50,  4.2,  30],    // 下坡折返
+    [ -25,  1.4,   8]     // 从西北平滑接入起跑
+  ];
+
+  function buildTrack() {
+    const pts = TRACK_POINTS.map(p => new THREE.Vector3(p[0], p[1], p[2]));
+    const curve = new THREE.CatmullRomCurve3(pts, true, "catmullrom", 0.5);
+    curve.arcLengthDivisions = 1200;
+    track.curve = curve;
+    track.length = curve.getLength();
+
+    // 弧长均匀采样（用于进度/最近点查询）
+    const N = 600;
+    track.samples = [];
+    for (let i = 0; i < N; i++) {
+      const u = i / N;
+      track.samples.push({ u: u, pos: curve.getPointAt(u) });
+    }
+    // 每个采样点的侧向与切线
+    for (let i = 0; i < N; i++) {
+      const s = track.samples[i];
+      const next = track.samples[(i + 1) % N].pos;
+      const prev = track.samples[(i - 1 + N) % N].pos;
+      const tan = new THREE.Vector3().subVectors(next, prev).normalize();
+      const side = new THREE.Vector3().crossVectors(tan, new THREE.Vector3(0, 1, 0)).normalize();
+      s.tangent = tan; s.side = side;
+    }
+
+    // ===== 草地地面 =====
+    const groundGeo = new THREE.PlaneGeometry(900, 900, 1, 1);
+    const groundMat = new THREE.MeshLambertMaterial({ color: 0x5fa84a });
+    const ground = new THREE.Mesh(groundGeo, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.set(-20, -0.05, -70);
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    // ===== 道路网格 =====
+    buildRoadMesh();
+
+    // ===== 护栏 =====
+    buildBarriers();
+
+    // ===== 起跑线 =====
+    buildStartLine();
+
+    // ===== 加速带 =====
+    buildBoostPads();
+
+    // ===== 赛道装饰（树/彩旗） =====
+    buildDecorations();
+
+    // ===== 道具箱 =====
+    buildItemBoxes();
+  }
+
+  function buildRoadMesh() {
+    const half = CFG.roadWidth / 2;
+    const N = track.samples.length;
+    const positions = [];
+    const uvs = [];
+    const indices = [];
+    // 顶点：每段左右两点
+    for (let i = 0; i < N; i++) {
+      const s = track.samples[i];
+      const left = s.pos.clone().addScaledVector(s.side, half);
+      const right = s.pos.clone().addScaledVector(s.side, -half);
+      positions.push(left.x, s.pos.y + 0.02, left.z, right.x, s.pos.y + 0.02, right.z);
+      uvs.push(0, i / 8, 1, i / 8);
+    }
+    for (let i = 0; i < N; i++) {
+      const a = i * 2, b = i * 2 + 1, c = ((i + 1) % N) * 2, d = ((i + 1) % N) * 2 + 1;
+      indices.push(a, c, b, b, c, d);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    const mat = new THREE.MeshLambertMaterial({ color: 0x4a4a52, side: THREE.DoubleSide });
+    const road = new THREE.Mesh(geo, mat);
+    road.receiveShadow = true;
+    scene.add(road);
+
+    // 道路边缘白线（两条细条）
+    addEdgeLine(half - 0.4, 0xffffff, 0.025);
+    addEdgeLine(-(half - 0.4), 0xffffff, 0.025);
+    // 中央虚线
+    addCenterDashes();
+  }
+
+  function addEdgeLine(offset, color, yOff) {
+    const N = track.samples.length;
+    const positions = [];
+    for (let i = 0; i <= N; i++) {
+      const s = track.samples[i % N];
+      const p = s.pos.clone().addScaledVector(s.side, offset);
+      positions.push(p.x, p.y + 0.03 + yOff, p.z);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    const mat = new THREE.LineBasicMaterial({ color: color });
+    scene.add(new THREE.Line(geo, mat));
+  }
+
+  function addCenterDashes() {
+    const N = track.samples.length;
+    const mat = new THREE.MeshBasicMaterial({ color: 0xfff7c2 });
+    for (let i = 0; i < N; i += 8) {
+      const s = track.samples[i];
+      const s2 = track.samples[(i + 3) % N];
+      const mid = s.pos.clone().add(s2.pos).multiplyScalar(0.5);
+      const tan = s.tangent;
+      const len = s.pos.distanceTo(s2.pos);
+      const geo = new THREE.PlaneGeometry(0.5, len);
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.rotation.z = -Math.atan2(tan.x, tan.z);
+      mesh.position.set(mid.x, mid.y + 0.05, mid.z);
+      scene.add(mesh);
+    }
+  }
+
+  function buildBarriers() {
+    // 红白交替的低矮护栏，沿赛道两侧
+    const half = CFG.roadWidth / 2 + 0.6;
+    const N = track.samples.length;
+    const step = 3;
+    const matR = new THREE.MeshLambertMaterial({ color: 0xff4757 });
+    const matW = new THREE.MeshLambertMaterial({ color: 0xf5f5f5 });
+    const postGeo = new THREE.BoxGeometry(0.5, 1.0, 0.5);
+    for (let i = 0; i < N; i += step) {
+      const s = track.samples[i];
+      const useRed = ((i / step) | 0) % 2 === 0;
+      const mat = useRed ? matR : matW;
+      const lp = s.pos.clone().addScaledVector(s.side, half);
+      const rp = s.pos.clone().addScaledVector(s.side, -half);
+      const a = new THREE.Mesh(postGeo, mat);
+      a.position.set(lp.x, lp.y + 0.5, lp.z); a.castShadow = true;
+      const b = new THREE.Mesh(postGeo, mat);
+      b.position.set(rp.x, rp.y + 0.5, rp.z); b.castShadow = true;
+      scene.add(a); scene.add(b);
+    }
+  }
+
+  function buildStartLine() {
+    // 起跑线在 u=0（第一个采样点）
+    const s = track.samples[0];
+    track.startDir = s.tangent.clone();
+    track.startSide = s.side.clone();
+    track.startPos = s.pos.clone();
+    // 黑白格子起跑线
+    const half = CFG.roadWidth / 2;
+    const cells = 10;
+    for (let r = 0; r < 2; r++) {
+      for (let c = 0; c < cells; c++) {
+        const black = (r + c) % 2 === 0;
+        const geo = new THREE.PlaneGeometry((CFG.roadWidth) / cells, 1.2);
+        const mat = new THREE.MeshBasicMaterial({ color: black ? 0x111111 : 0xffffff });
+        const m = new THREE.Mesh(geo, mat);
+        m.rotation.x = -Math.PI / 2;
+        m.rotation.z = -Math.atan2(s.tangent.x, s.tangent.z);
+        const offX = (c - cells / 2 + 0.5) * (CFG.roadWidth / cells);
+        const offZ = (r - 0.5) * 1.2;
+        m.position.set(
+          s.pos.x + s.side.x * offX + s.tangent.x * offZ,
+          s.pos.y + 0.06,
+          s.pos.z + s.side.z * offX + s.tangent.z * offZ
+        );
+        scene.add(m);
+      }
+    }
+    // START 旗杆
+    const poleMat = new THREE.MeshLambertMaterial({ color: 0x222222 });
+    for (const sign of [-1, 1]) {
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 5), poleMat);
+      const pp = s.pos.clone().addScaledVector(s.side, half * sign);
+      pole.position.set(pp.x, pp.y + 2.5, pp.z); pole.castShadow = true;
+      scene.add(pole);
+      const banner = new THREE.Mesh(new THREE.BoxGeometry(4, 1.4, 0.2),
+        new THREE.MeshBasicMaterial({ color: 0xffe66d }));
+      banner.position.set(pp.x, pp.y + 4.6, pp.z);
+      scene.add(banner);
+    }
+  }
+
+  function buildBoostPads() {
+    // 在几个直道/出弯处放置加速带
+    const padTs = [0.18, 0.36, 0.55, 0.72, 0.88];
+    const padGeo = new THREE.BoxGeometry(5, 0.25, 3);
+    const padMat = new THREE.MeshStandardMaterial({ color: 0xff8c1a, emissive: 0xff5500, emissiveIntensity: 0.7 });
+    const stripeMat = new THREE.MeshBasicMaterial({ color: 0xffe66d });
+    for (const t of padTs) {
+      const idx = Math.floor(t * track.samples.length);
+      const s = track.samples[idx];
+      const mesh = new THREE.Mesh(padGeo, padMat);
+      mesh.rotation.y = -Math.atan2(s.tangent.x, s.tangent.z) + Math.PI / 2;
+      // 用 tangent 调整：让加速带长边跨路面、短边沿行进方向
+      mesh.position.set(s.pos.x, s.pos.y + 0.18, s.pos.z);
+      mesh.receiveShadow = true; mesh.castShadow = true;
+      scene.add(mesh);
+      // 横向条纹
+      for (let k = -1; k <= 1; k++) {
+        const stripe = new THREE.Mesh(new THREE.BoxGeometry(4.6, 0.06, 0.35), stripeMat);
+        const fwd = s.tangent.clone().multiplyScalar(k * 0.9);
+        stripe.position.set(s.pos.x + fwd.x, s.pos.y + 0.32, s.pos.z + fwd.z);
+        stripe.rotation.y = mesh.rotation.y;
+        scene.add(stripe);
+      }
+      boostPads.push({ t: t, pos: s.pos.clone(), mesh: mesh });
+    }
+  }
+
+  function buildDecorations() {
+    // 在赛道外圈放些"树"（圆锥+圆柱）和彩旗
+    const treeMat = new THREE.MeshLambertMaterial({ color: 0x2a7a2a });
+    const trunkMat = new THREE.MeshLambertMaterial({ color: 0x6b3f1d });
+    const leafGeo = new THREE.ConeGeometry(2.2, 6, 8);
+    const trunkGeo = new THREE.CylinderGeometry(0.5, 0.7, 3, 6);
+    const N = track.samples.length;
+    for (let i = 0; i < N; i += 12) {
+      const s = track.samples[i];
+      for (const dir of [1, -1]) {
+        const dist = CFG.roadWidth / 2 + 8 + Math.random() * 14;
+        const p = s.pos.clone().addScaledVector(s.side, dist * dir);
+        const tree = new THREE.Group();
+        const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+        trunk.position.y = 1.5; trunk.castShadow = true;
+        const leaf = new THREE.Mesh(leafGeo, treeMat);
+        leaf.position.y = 5.5; leaf.castShadow = true;
+        tree.add(trunk); tree.add(leaf);
+        tree.position.set(p.x, p.y, p.z);
+        tree.rotation.y = Math.random() * Math.PI;
+        scene.add(tree);
+      }
+    }
+    // 云朵（高处的白色球团）
+    const cloudMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 });
+    for (let i = 0; i < 12; i++) {
+      const cloud = new THREE.Group();
+      const n = 3 + ((Math.random() * 3) | 0);
+      for (let j = 0; j < n; j++) {
+        const r = 5 + Math.random() * 5;
+        const s = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6), cloudMat);
+        s.position.set(j * 5 - n * 1.5, (Math.random() - .5) * 3, (Math.random() - .5) * 4);
+        cloud.add(s);
+      }
+      cloud.position.set(-160 + Math.random() * 320, 55 + Math.random() * 25, -180 + Math.random() * 220);
+      scene.add(cloud);
+    }
+  }
+
+  // ============================================================
+  //  车手模型
+  // ============================================================
+  function createKartMesh(color) {
+    const g = new THREE.Group();
+    const bodyMat = new THREE.MeshStandardMaterial({ color: color.main, roughness: 0.45, metalness: 0.15 });
+    const darkMat = new THREE.MeshStandardMaterial({ color: color.dark, roughness: 0.6 });
+    const blackMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.8 });
+    const glassMat = new THREE.MeshStandardMaterial({ color: 0x223044, roughness: 0.2, metalness: 0.4 });
+    const accMat = new THREE.MeshStandardMaterial({ color: color.accent, roughness: 0.5 });
+
+    // 主车身（朝 +Z）
+    const body = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.7, 3.4), bodyMat);
+    body.position.y = 0.7; body.castShadow = true;
+    g.add(body);
+    // 前鼻
+    const nose = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.5, 0.9), bodyMat);
+    nose.position.set(0, 0.55, 2.0); nose.castShadow = true;
+    g.add(nose);
+    // 驾驶舱
+    const cock = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.7, 1.6), darkMat);
+    cock.position.set(0, 1.35, -0.2); cock.castShadow = true;
+    g.add(cock);
+    // 挡风（前）
+    const shield = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.55, 0.15), glassMat);
+    shield.position.set(0, 1.4, 0.65);
+    shield.rotation.x = -0.35;
+    g.add(shield);
+    // 后扰流
+    const wing = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.12, 0.6), darkMat);
+    wing.position.set(0, 1.2, -1.8); wing.castShadow = true;
+    g.add(wing);
+    const wsL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.6, 0.5), darkMat); wsL.position.set(0.9, 0.95, -1.8);
+    const wsR = wsL.clone(); wsR.position.x = -0.9;
+    g.add(wsL); g.add(wsR);
+    // 车头装饰圆
+    const badge = new THREE.Mesh(new THREE.CircleGeometry(0.32, 16), accMat);
+    badge.position.set(0, 0.7, 2.46);
+    g.add(badge);
+    // 轮子
+    const wheelGeo = new THREE.CylinderGeometry(0.65, 0.65, 0.5, 14);
+    const wfl = new THREE.Mesh(wheelGeo, blackMat); wfl.rotation.z = Math.PI / 2; wfl.position.set(1.2, 0.65, 1.3); wfl.castShadow = true;
+    const wfr = wfl.clone(); wfr.position.x = -1.2;
+    const wbl = wfl.clone(); wbl.position.z = -1.3;
+    const wbr = wfl.clone(); wbr.position.set(-1.2, 0.65, -1.3);
+    g.add(wfl); g.add(wfr); g.add(wbl); g.add(wbr);
+    g.userData.wheels = [wfl, wfr, wbl, wbr];
+
+    // 护盾罩（默认隐藏，shieldTime>0 时显示）
+    const shieldMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(2.4, 16, 12),
+      new THREE.MeshBasicMaterial({ color: 0x7bed9f, transparent: true, opacity: 0.28, wireframe: true })
+    );
+    shieldMesh.position.y = 1.0;
+    shieldMesh.visible = false;
+    g.add(shieldMesh);
+    g.userData.shieldMesh = shieldMesh;
+
+    g.rotation.order = "YXZ"; // 先航向(Y)再俯仰(X)再侧倾(Z)，使坡道俯仰作用于车体局部
+    return g;
+  }
+
+  // ============================================================
+  //  车手创建与起跑排位
+  // ============================================================
+  function setupRacers() {
+    karts = [];
+    const diff = DIFF[difficulty];
+    // 起跑网格：从起跑线略前方（u 略大于0）开始，向后排列
+    for (let i = 0; i < CFG.gridCount; i++) {
+      const col = i % 2;          // 0 / 1
+      const row = (i / 2) | 0;    // 0,1,2...
+      const isPlayer = (i === 0);
+      const color = KART_COLORS[i];
+      const mesh = createKartMesh(color);
+      scene.add(mesh);
+
+      // 起跑位置：u = 0.001 + row*0.012，横向偏移
+      const startU = 0.002 + row * 0.013;
+      const sIdx = Math.floor(startU * track.samples.length) % track.samples.length;
+      const s = track.samples[sIdx];
+      const sideOff = (col === 0 ? 1 : -1) * (CFG.roadWidth * 0.18);
+      const pos = s.pos.clone().addScaledVector(s.side, sideOff);
+
+      // 朝向：沿切线
+      const heading = Math.atan2(s.tangent.x, s.tangent.z);
+      mesh.position.set(pos.x, pos.y, pos.z);
+      mesh.rotation.y = heading;
+
+      const kart = {
+        mesh: mesh,
+        isPlayer: isPlayer,
+        colorIdx: i,
+        name: isPlayer ? "你" : diff.names[i - 1],
+        pos: new THREE.Vector3(pos.x, pos.y, pos.z),
+        heading: heading,
+        speed: 0,
+        driftVisual: 0,
+        steer: 0, throttle: 0, brake: 0, drifting: false,
+        // 比赛
+        progress: startU,
+        prevProgress: startU,
+        lap: 0,
+        totalProgress: 0,
+        finished: false,
+        finishTime: null,
+        canCountLap: false,
+        lastNearest: sIdx,
+        // AI
+        aiSide: (Math.random() - 0.5) * (CFG.roadWidth * 0.5),
+        aiSkill: diff.aiSpeed * (0.97 + Math.random() * 0.08),
+        aiAgg: diff.aiAgg,
+        // boost / 道具 / 氮气 状态
+        boostTime: 0,          // 加速带
+        turboTime: 0,          // 道具氮气瓶（最强）
+        nitroTime: 0,          // 氮气槽释放
+        slowTime: 0,           // 被击中减速
+        spinTime: 0,           // 被击中打转
+        shieldTime: 0,         // 护盾
+        item: null,            // 当前持有道具
+        nitro: 0,              // 氮气槽 0..100
+        aiItemDelay: 0,        // AI 使用道具延迟
+        // 视觉
+        wheelsSpin: 0,
+        // 起跑锁定倒计时
+        locked: true
+      };
+      if (isPlayer) player = kart;
+      karts.push(kart);
+    }
+  }
+
+  // ============================================================
+  //  输入
+  // ============================================================
+  function bindInput() {
+    window.addEventListener("keydown", (e) => {
+      keys[e.code] = true;
+      if (e.code === "KeyR" && gameState === "racing" && !paused) resetPlayerToTrack();
+      if (!e.repeat && gameState === "racing" && !paused) {
+        if (e.code === "ShiftLeft" || e.code === "ShiftRight") useItem(player);
+        else if (e.code === "ControlLeft" || e.code === "ControlRight") releaseNitro(player);
+      }
+      if (e.code === "Escape") {
+        if (gameState === "racing") togglePause();
+      }
+      // 阻止方向键/空格滚动页面
+      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code)) e.preventDefault();
+    });
+    window.addEventListener("keyup", (e) => { keys[e.code] = false; });
+  }
+
+  function readPlayerInput() {
+    const k = keys;
+    player.throttle = (k.ArrowUp || k.KeyW) ? 1 : 0;
+    player.brake = (k.ArrowDown || k.KeyS) ? 1 : 0;
+    let targetSteer = 0;
+    if (k.ArrowLeft || k.KeyA) targetSteer += 1;
+    if (k.ArrowRight || k.KeyD) targetSteer -= 1;
+    // 转向平滑过渡（松手回正、打方向更丝滑）
+    player.steer = lerp(player.steer, targetSteer, CFG.steerLerp);
+    player.drifting = !!k.Space && Math.abs(targetSteer) > 0 && Math.abs(player.speed) > 9;
+  }
+
+  // ============================================================
+  //  物理：玩家
+  // ============================================================
+  function updateKartPhysics(kart, dt) {
+    if (kart.locked) { kart.speed = 0; return; }
+
+    // 判断是否在草地上（离赛道中心线太远）
+    const nearest = nearestSample(kart);
+    const s = track.samples[nearest];
+    const toCenter = new THREE.Vector3(kart.pos.x - s.pos.x, 0, kart.pos.z - s.pos.z);
+    const sideDist = Math.abs(toCenter.dot(s.side));
+    const onGrass = sideDist > CFG.roadWidth / 2 + 0.5;
+    kart._onGrass = onGrass;
+
+    // 计算当前极速（道具增益 / 被击中减速覆盖增益）
+    let mx = CFG.maxSpeed;
+    if (kart.boostTime > 0) mx = Math.max(mx, CFG.boostSpeed);
+    if (kart.nitroTime > 0) mx = Math.max(mx, CFG.nitroSpeed);
+    if (kart.turboTime > 0) mx = Math.max(mx, CFG.turboSpeed);
+    if (kart.slowTime > 0) mx = CFG.maxSpeed * CFG.slowFactor;
+    let curMax = onGrass ? mx * CFG.grassMaxSpeed : mx;
+
+    if (kart.throttle > 0) {
+      kart.speed += CFG.accel * kart.throttle * dt;
+    }
+    if (kart.brake > 0) {
+      if (kart.speed > 0.2) kart.speed -= CFG.brake * kart.brake * dt;
+      else kart.speed -= CFG.accel * 0.6 * kart.brake * dt; // 倒车
+    }
+    // 摩擦
+    kart.speed -= kart.speed * CFG.drag * dt;
+    kart.speed -= Math.sign(kart.speed) * CFG.rollFriction * dt * (onGrass ? CFG.grassDrag : 1);
+    // 限速
+    kart.speed = clamp(kart.speed, -CFG.reverseSpeed, curMax);
+    if (Math.abs(kart.speed) < 0.05) kart.speed = 0;
+
+    // 转向（低速也保留一定转向能力 → 起步/弯道更灵活）
+    const speedFactor = clamp((Math.abs(kart.speed) + 5) / 18, 0.35, 1);
+    let turn = CFG.turnRate * kart.steer * speedFactor;
+    if (kart.drifting) turn *= CFG.driftTurnBoost;
+    if (kart.speed < 0) turn = -turn;
+    // 被击中打转：强制旋转覆盖正常转向
+    if (kart.spinTime > 0) turn = 7 * (kart.spinDir || 1);
+    kart.heading += turn * dt;
+
+    // 位置积分（沿 heading）
+    kart.pos.x += Math.sin(kart.heading) * kart.speed * dt;
+    kart.pos.z += Math.cos(kart.heading) * kart.speed * dt;
+
+    // 跟随赛道高度（贴地起伏）+ 按切线坡度计算车头俯仰角
+    const ns = track.samples[nearest];
+    kart.pos.y = ns.pos.y;
+    const tlen = Math.sqrt(ns.tangent.x * ns.tangent.x + ns.tangent.z * ns.tangent.z);
+    kart.pitch = -Math.atan2(ns.tangent.y, tlen);
+
+    // 各类计时器衰减
+    if (kart.boostTime > 0) kart.boostTime -= dt;
+    if (kart.turboTime > 0) kart.turboTime -= dt;
+    if (kart.nitroTime > 0) kart.nitroTime -= dt;
+    if (kart.slowTime > 0) kart.slowTime -= dt;
+    if (kart.shieldTime > 0) kart.shieldTime -= dt;
+    if (kart.spinTime > 0) kart.spinTime -= dt;
+
+    // 漂移积累氮气槽
+    if (kart.drifting && kart.speed > 9) kart.nitro = clamp(kart.nitro + CFG.nitroDriftRate * dt, 0, CFG.nitroMax);
+
+    // 视觉漂移偏角（响应更快）
+    const targetDrift = kart.drifting ? clamp(kart.steer, -1, 1) * CFG.driftVisualMax : 0;
+    kart.driftVisual = lerp(kart.driftVisual, targetDrift, dt * 8);
+
+    // 轮子滚动
+    kart.wheelsSpin += kart.speed * dt * 0.4;
+
+    applyKartTransform(kart);
+  }
+
+  function applyKartTransform(kart) {
+    kart.mesh.position.set(kart.pos.x, kart.pos.y || 0, kart.pos.z);
+    kart.mesh.rotation.y = kart.heading + kart.driftVisual;
+    kart.mesh.rotation.x = kart.pitch || 0;   // 上下坡俯仰
+    // 车身轻微侧倾
+    kart.mesh.rotation.z = -kart.steer * 0.06 * clamp(kart.speed / CFG.maxSpeed, -1, 1);
+    // 加速类状态时轻微颠簸（叠加在贴地高度之上）
+    if (kart.turboTime > 0 || kart.boostTime > 0 || kart.nitroTime > 0)
+      kart.mesh.position.y = (kart.pos.y || 0) + Math.abs(Math.sin(performance.now() * 0.04)) * 0.14;
+    // 轮子旋转
+    const wheels = kart.mesh.userData.wheels;
+    if (wheels) {
+      for (const w of wheels) w.rotation.x = kart.wheelsSpin;
+    }
+    // 护盾罩
+    const sm = kart.mesh.userData.shieldMesh;
+    if (sm) {
+      const show = kart.shieldTime > 0;
+      if (show !== sm.visible) sm.visible = show;
+      if (show) sm.rotation.y += 0.04;
+    }
+  }
+
+  // ============================================================
+  //  AI
+  // ============================================================
+  function updateAI(kart, dt) {
+    if (kart.locked || kart.finished) { kart.speed = 0; applyKartTransform(kart); return; }
+
+    // 目标点：前方一段距离的赛道中心 + 横向偏好
+    const look = 0.012 + clamp(kart.speed / CFG.maxSpeed, 0, 1) * 0.04;
+    const targetU = (kart.progress + look) % 1;
+    const tgtIdx = Math.floor(targetU * track.samples.length) % track.samples.length;
+    const ts = track.samples[tgtIdx];
+    const target = ts.pos.clone().addScaledVector(ts.side, kart.aiSide);
+
+    const toTarget = new THREE.Vector3().subVectors(target, kart.pos);
+    toTarget.y = 0;
+    const dist = toTarget.length();
+    const desiredHeading = Math.atan2(toTarget.x, toTarget.z);
+
+    // 转向
+    const d = angleDiff(desiredHeading, kart.heading);
+    kart.steer = clamp(d * 2.0, -1, 1);
+    // 油门：根据前方曲率与目标方向差减速；困难AI更激进
+    const curveIdx = Math.floor((kart.progress + 0.03) * track.samples.length) % track.samples.length;
+    const cs1 = track.samples[curveIdx];
+    const cs2 = track.samples[(curveIdx + 12) % track.samples.length];
+    const curveAngle = Math.abs(angleDiff(Math.atan2(cs2.tangent.x, cs2.tangent.z), Math.atan2(cs1.tangent.x, cs1.tangent.z)));
+    let throttle = kart.aiSkill * kart.aiAgg;
+    if (curveAngle > 0.18 || Math.abs(d) > 0.7) throttle *= 0.62;
+    kart.throttle = clamp(throttle, 0, 1);
+    kart.brake = (Math.abs(d) > 1.1 && kart.speed > CFG.maxSpeed * 0.6) ? 0.35 : 0;
+
+    // 防止跑出赛道：若严重偏离中心，加大转向回赛道
+    if (dist > CFG.roadWidth / 2 - 1) { /* 不做硬处理，让物理进入草地减速 */ }
+
+    // AI 道具与氮气使用
+    if (kart.item) {
+      kart.aiItemDelay -= dt;
+      if (kart.aiItemDelay <= 0) useItem(kart);
+    }
+    if (kart.nitro >= CFG.nitroMax) releaseNitro(kart);
+
+    updateKartPhysics(kart, dt);
+  }
+
+  // ============================================================
+  //  最近采样点 & 进度/圈数
+  // ============================================================
+  function nearestSample(kart) {
+    // 在上次索引附近搜索（赛道是闭合连续的）
+    const N = track.samples.length;
+    let best = kart.lastNearest, bestD = Infinity;
+    const range = 40;
+    for (let off = -range; off <= range; off++) {
+      const i = ((kart.lastNearest + off) % N + N) % N;
+      const s = track.samples[i].pos;
+      const dx = s.x - kart.pos.x, dz = s.z - kart.pos.z;
+      const d2 = dx * dx + dz * dz;
+      if (d2 < bestD) { bestD = d2; best = i; }
+    }
+    kart.lastNearest = best;
+    return best;
+  }
+
+  function updateProgress(kart) {
+    const idx = nearestSample(kart);
+    const u = idx / track.samples.length;
+    // canCountLap：必须先跑到赛道中段，防止起点附近抖动
+    if (u > 0.5) kart.canCountLap = true;
+    // 检测正向跨过起点线：prev 高 -> cur 低
+    const dp = u - kart.prevProgress;
+    if (kart.canCountLap && dp < -0.5) {
+      kart.lap += 1;
+      kart.canCountLap = false;
+      if (kart.isPlayer) {
+        if (kart.lap >= CFG.totalLaps) {
+          // 完成最后一圈
+        } else {
+          audio.lap();
+          showLapMessage("第 " + (kart.lap + 1) + " 圈！");
+        }
+      }
+      if (kart.lap >= CFG.totalLaps && !kart.finished) {
+        kart.finished = true;
+        kart.finishTime = raceTime;
+      }
+    }
+    kart.prevProgress = u;
+    kart.progress = u;
+    kart.totalProgress = kart.lap + u;
+  }
+
+  // ============================================================
+  //  加速带检测
+  // ============================================================
+  function checkBoostPads(kart) {
+    if (kart.boostTime > 0.3) return; // 冷却
+    for (const pad of boostPads) {
+      const dx = kart.pos.x - pad.pos.x, dz = kart.pos.z - pad.pos.z;
+      if (dx * dx + dz * dz < 12) {
+        kart.boostTime = 1.3;
+        if (kart.isPlayer) audio.boost();
+        break;
+      }
+    }
+  }
+
+  // ============================================================
+  //  道具系统
+  // ============================================================
+  let itemBoxTex = null;
+  function makeItemBoxTexture() {
+    if (itemBoxTex) return itemBoxTex;
+    const c = document.createElement("canvas");
+    c.width = 64; c.height = 64;
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "#ffe66d"; ctx.fillRect(0, 0, 64, 64);
+    ctx.strokeStyle = "#c9a90f"; ctx.lineWidth = 3; ctx.strokeRect(2, 2, 60, 60);
+    ctx.fillStyle = "#ff4757"; ctx.font = "bold 46px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("?", 32, 35);
+    itemBoxTex = new THREE.CanvasTexture(c);
+    return itemBoxTex;
+  }
+
+  function buildItemBoxes() {
+    const positions = [0.09, 0.27, 0.45, 0.62, 0.8, 0.93];
+    const tex = makeItemBoxTexture();
+    const mat = new THREE.MeshStandardMaterial({ map: tex, emissive: 0x553300, emissiveIntensity: 0.45, transparent: true, opacity: 0.95 });
+    const geo = new THREE.BoxGeometry(1.6, 1.6, 1.6);
+    for (const t of positions) {
+      const idx = Math.floor(t * track.samples.length) % track.samples.length;
+      const s = track.samples[idx];
+      for (let k = -1; k <= 1; k++) {
+        const mesh = new THREE.Mesh(geo, mat);
+        const p = s.pos.clone().addScaledVector(s.side, k * 5);
+        mesh.position.set(p.x, p.y + 1.2, p.z);
+        mesh.castShadow = true;
+        scene.add(mesh);
+        itemBoxes.push({ mesh: mesh, pos: p.clone(), baseY: p.y + 1.2, phase: Math.random() * 6.28, active: true, respawn: 0 });
+      }
+    }
+  }
+
+  function rollItem() {
+    return ITEM_POOL[(Math.random() * ITEM_POOL.length) | 0];
+  }
+
+  function updateItemBoxes(dt) {
+    const now = performance.now() * 0.003;
+    for (const box of itemBoxes) {
+      if (box.active) {
+        box.mesh.rotation.y += dt * 1.6;
+        box.mesh.position.y = box.baseY + Math.sin(now + box.phase) * 0.18;
+        for (const k of karts) {
+          if (k.finished || k.locked || k.item) continue;
+          const dx = k.pos.x - box.pos.x, dz = k.pos.z - box.pos.z;
+          if (dx * dx + dz * dz < 7) {
+            k.item = rollItem();
+            if (k.isPlayer) { audio.blip(720, 0.12, "square", 0.22); if (!k.aiItemDelay) k.aiItemDelay = 0; }
+            else { k.aiItemDelay = 0.6 + Math.random() * 2.4; }
+            box.active = false; box.respawn = CFG.itemBoxRespawn;
+            box.mesh.visible = false;
+            break;
+          }
+        }
+      } else {
+        box.respawn -= dt;
+        if (box.respawn <= 0) { box.active = true; box.mesh.visible = true; }
+      }
+    }
+  }
+
+  function useItem(kart) {
+    if (!kart || !kart.item || kart.locked) return;
+    const it = kart.item;
+    kart.item = null;
+    if (it === "nitro") {
+      kart.turboTime = 2.2;
+      if (kart.isPlayer) audio.boost();
+    } else if (it === "shield") {
+      kart.shieldTime = CFG.shieldTime;
+      if (kart.isPlayer) audio.blip(540, 0.2, "sine", 0.2);
+    } else if (it === "missile") {
+      spawnMissile(kart);
+      if (kart.isPlayer) audio.blip(1200, 0.12, "sawtooth", 0.18);
+    } else if (it === "mine") {
+      spawnMine(kart);
+      if (kart.isPlayer) audio.blip(300, 0.15, "square", 0.18);
+    }
+  }
+
+  function findMissileTarget(owner) {
+    updateRanks();
+    let target = null;
+    for (const k of karts) {
+      if (k === owner || k.finished) continue;
+      if (k.rank === owner.rank - 1) { target = k; break; }
+    }
+    if (!target) {
+      let bd = Infinity;
+      for (const k of karts) {
+        if (k === owner || k.finished) continue;
+        const dx = k.pos.x - owner.pos.x, dz = k.pos.z - owner.pos.z;
+        const d = dx * dx + dz * dz;
+        if (d < bd) { bd = d; target = k; }
+      }
+    }
+    return target;
+  }
+
+  function spawnMissile(owner) {
+    const target = findMissileTarget(owner);
+    const group = new THREE.Group();
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.45, 1.8, 10),
+      new THREE.MeshStandardMaterial({ color: 0xff4757, emissive: 0xff2200, emissiveIntensity: 0.85 }));
+    cone.rotation.x = Math.PI / 2; // 尖端朝 +Z
+    group.add(cone);
+    const tail = new THREE.Mesh(new THREE.ConeGeometry(0.3, 1.0, 8),
+      new THREE.MeshBasicMaterial({ color: 0xffd93b }));
+    tail.rotation.x = -Math.PI / 2; tail.position.z = -1.3;
+    group.add(tail);
+    const px = owner.pos.x + Math.sin(owner.heading) * 2.6;
+    const pz = owner.pos.z + Math.cos(owner.heading) * 2.6;
+    group.position.set(px, owner.pos.y + 1.0, pz);
+    group.rotation.y = owner.heading;
+    scene.add(group);
+    projectiles.push({ mesh: group, owner: owner, target: target, pos: new THREE.Vector3(px, owner.pos.y + 1.0, pz), heading: owner.heading, life: 4.5 });
+  }
+
+  function spawnMine(owner) {
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.9, 12, 8),
+      new THREE.MeshStandardMaterial({ color: 0x1a1a1a, emissive: 0x880000, emissiveIntensity: 0.6 }));
+    const px = owner.pos.x - Math.sin(owner.heading) * 4;
+    const pz = owner.pos.z - Math.cos(owner.heading) * 4;
+    mesh.position.set(px, owner.pos.y + 0.5, pz);
+    mesh.castShadow = true;
+    scene.add(mesh);
+    mines.push({ mesh: mesh, owner: owner, pos: new THREE.Vector3(px, owner.pos.y + 0.5, pz), life: CFG.mineLife });
+  }
+
+  function hitKart(target, attacker) {
+    if (!target || target.finished || target.locked) return;
+    if (target.shieldTime > 0) {
+      target.shieldTime = 0;
+      if (target.isPlayer) { showLapMessage("护盾抵挡！"); audio.blip(880, 0.2, "sine", 0.2); }
+      return;
+    }
+    target.slowTime = CFG.slowTime;
+    target.spinTime = CFG.spinTime;
+    target.spinDir = (Math.random() < 0.5 ? -1 : 1);
+    target.speed *= 0.3;
+    target.boostTime = 0; target.turboTime = 0; target.nitroTime = 0;
+    if (target.isPlayer) { flashHit(); audio.blip(180, 0.4, "sawtooth", 0.25); }
+  }
+
+  let hitFlashTimer = 0;
+  function flashHit() { dom.hitFlash.classList.add("show"); hitFlashTimer = 0.35; }
+
+  function updateProjectiles(dt) {
+    // 导弹
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+      const m = projectiles[i];
+      m.life -= dt;
+      if (m.target && !m.target.finished) {
+        const dx = m.target.pos.x - m.pos.x, dz = m.target.pos.z - m.pos.z;
+        const desired = Math.atan2(dx, dz);
+        const d = angleDiff(desired, m.heading);
+        m.heading += clamp(d, -CFG.missileTurn * dt, CFG.missileTurn * dt);
+      }
+      m.pos.x += Math.sin(m.heading) * CFG.missileSpeed * dt;
+      m.pos.z += Math.cos(m.heading) * CFG.missileSpeed * dt;
+      m.mesh.position.set(m.pos.x, (m.target ? m.target.pos.y : m.owner.pos.y) + 1.0, m.pos.z);
+      m.mesh.rotation.y = m.heading;
+      let hit = false;
+      if (m.target && !m.target.finished) {
+        const dx = m.target.pos.x - m.pos.x, dz = m.target.pos.z - m.pos.z;
+        if (dx * dx + dz * dz < 6) { hitKart(m.target, m.owner); hit = true; }
+      }
+      if (!hit) {
+        for (const k of karts) {
+          if (k === m.owner || k.finished) continue;
+          const dx = k.pos.x - m.pos.x, dz = k.pos.z - m.pos.z;
+          if (dx * dx + dz * dz < 5) { hitKart(k, m.owner); hit = true; break; }
+        }
+      }
+      if (hit || m.life <= 0) { scene.remove(m.mesh); projectiles.splice(i, 1); }
+    }
+    // 地雷
+    for (let i = mines.length - 1; i >= 0; i--) {
+      const mn = mines[i];
+      mn.life -= dt;
+      mn.mesh.rotation.y += dt * 1.2;
+      let triggered = false;
+      for (const k of karts) {
+        if (k === mn.owner || k.locked) continue;
+        const dx = k.pos.x - mn.pos.x, dz = k.pos.z - mn.pos.z;
+        if (dx * dx + dz * dz < 6) { hitKart(k, mn.owner); triggered = true; break; }
+      }
+      if (triggered || mn.life <= 0) { scene.remove(mn.mesh); mines.splice(i, 1); }
+    }
+  }
+
+  function releaseNitro(kart) {
+    if (!kart || kart.locked) return;
+    if (kart.nitro >= CFG.nitroMax) {
+      kart.nitro = 0;
+      kart.nitroTime = CFG.nitroReleaseTime;
+      if (kart.isPlayer) audio.boost();
+    }
+  }
+
+
+  // ============================================================
+  //  车辆碰撞（弹性冲量：动量传递 + 位置分离）
+  // ============================================================
+  function resolveCollisions() {
+    const minD = 3.6;
+    for (let i = 0; i < karts.length; i++) {
+      for (let j = i + 1; j < karts.length; j++) {
+        const a = karts[i], b = karts[j];
+        const dx = b.pos.x - a.pos.x, dz = b.pos.z - a.pos.z;
+        const d2 = dx * dx + dz * dz;
+        if (d2 >= minD * minD || d2 <= 0.001) continue;
+        const d = Math.sqrt(d2);
+        const nx = dx / d, nz = dz / d;        // a → b 单位法线
+        // 1) 位置分离，避免穿透
+        const overlap = (minD - d) / 2;
+        a.pos.x -= nx * overlap; a.pos.z -= nz * overlap;
+        b.pos.x += nx * overlap; b.pos.z += nz * overlap;
+        // 2) 沿法线的相对速度（b 相对 a）
+        const vax = Math.sin(a.heading) * a.speed, vaz = Math.cos(a.heading) * a.speed;
+        const vbx = Math.sin(b.heading) * b.speed, vbz = Math.cos(b.heading) * b.speed;
+        const vrel = (vbx - vax) * nx + (vbz - vaz) * nz;
+        if (vrel >= 0) continue;               // 同向/远离：只分开，不减速
+        // 3) 正在靠拢 → 弹性冲量（等质量）
+        const e = 0.35;
+        const J = -(1 + e) * vrel / 2;          // > 0
+        // 冲量沿各自 heading 投影回标量速度（快车减速、慢车被推加速）
+        a.speed = clamp(a.speed - J * (nx * Math.sin(a.heading) + nz * Math.cos(a.heading)), -CFG.reverseSpeed, CFG.maxSpeed * 1.25);
+        b.speed = clamp(b.speed + J * (nx * Math.sin(b.heading) + nz * Math.cos(b.heading)), -CFG.reverseSpeed, CFG.maxSpeed * 1.25);
+        // 4) 侧向冲量 → 车头轻微偏转（碰撞打方向，更自然）
+        const sideA = nz * Math.sin(a.heading) - nx * Math.cos(a.heading);
+        const sideB = nz * Math.sin(b.heading) - nx * Math.cos(b.heading);
+        a.heading += clamp(J * sideA * 0.015, -0.12, 0.12);
+        b.heading += clamp(-J * sideB * 0.015, -0.12, 0.12);
+        // 5) 撞击音效
+        if (vrel < -2.5 && (a.isPlayer || b.isPlayer)) audio.blip(150, 0.12, "square", 0.18);
+      }
+    }
+  }
+
+  // ============================================================
+  //  相机
+  // ============================================================
+  function updateRacingCamera(dt) {
+    const behind = new THREE.Vector3(
+      -Math.sin(player.heading) * CFG.camDist,
+      CFG.camHeight,
+      -Math.cos(player.heading) * CFG.camDist
+    );
+    const target = player.pos.clone().add(behind);
+    // boost 时拉近+震动
+    if (player.boostTime > 0) {
+      target.x += (Math.random() - .5) * 0.5;
+      target.y += (Math.random() - .5) * 0.5;
+    }
+    camera.position.lerp(target, clamp(dt * 5.5, 0, 1));
+    const look = new THREE.Vector3(
+      player.pos.x + Math.sin(player.heading) * CFG.camLookAhead,
+      player.pos.y + 1.2,
+      player.pos.z + Math.cos(player.heading) * CFG.camLookAhead
+    );
+    camera.lookAt(look);
+  }
+
+  function updateMenuCamera(dt) {
+    menuAngle += dt * 0.12;
+    const cx = -33, cz = -76;
+    const r = 240;
+    camera.position.set(cx + Math.cos(menuAngle) * r, 140 + Math.sin(menuAngle * 0.5) * 25, cz + Math.sin(menuAngle) * r);
+    camera.lookAt(cx, 8, cz);
+  }
+
+  // ============================================================
+  //  排名
+  // ============================================================
+  function updateRanks() {
+    const sorted = karts.slice().sort((a, b) => {
+      if (a.finished && b.finished) return a.finishTime - b.finishTime;
+      if (a.finished) return -1;
+      if (b.finished) return 1;
+      return b.totalProgress - a.totalProgress;
+    });
+    for (let i = 0; i < sorted.length; i++) sorted[i].rank = i + 1;
+  }
+
+  // ============================================================
+  //  比赛流程
+  // ============================================================
+  function startCountdown() {
+    gameState = "countdown";
+    countdownTimer = 0;
+    countdownPhase = 0;
+    raceTime = 0;
+    dom.countdown.classList.remove("hidden", "go");
+    dom.countdown.textContent = "3";
+    dom.countdown.classList.add("pop");
+    audio.count();
+  }
+
+  function tickCountdown(dt) {
+    countdownTimer += dt;
+    if (countdownTimer >= 1.0) {
+      countdownTimer = 0;
+      countdownPhase++;
+      // 重置 pop 动画
+      dom.countdown.classList.remove("pop");
+      void dom.countdown.offsetWidth;
+      dom.countdown.classList.add("pop");
+      if (countdownPhase === 1) { dom.countdown.textContent = "2"; dom.countdown.classList.remove("go"); audio.count(); }
+      else if (countdownPhase === 2) { dom.countdown.textContent = "1"; dom.countdown.classList.remove("go"); audio.count(); }
+      else if (countdownPhase === 3) {
+        dom.countdown.textContent = "GO!";
+        dom.countdown.classList.add("go");
+        audio.go();
+        // 解锁车辆
+        for (const k of karts) k.locked = false;
+        gameState = "racing";
+        setTimeout(function () { dom.countdown.classList.add("hidden"); }, 800);
+      }
+    }
+  }
+
+  function endRace() {
+    gameState = "finished";
+    audio.setEngine(0, false);
+    // 计算最终排名
+    updateRanks();
+    // 玩家未完赛也按进度给个时间
+    const sorted = karts.slice().sort((a, b) => {
+      if (a.finished && b.finished) return a.finishTime - b.finishTime;
+      if (a.finished) return -1;
+      if (b.finished) return 1;
+      return b.totalProgress - a.totalProgress;
+    });
+    dom.resultsList.innerHTML = "";
+    const medals = ["🥇", "🥈", "🥉", "4️⃣"];
+    for (let i = 0; i < sorted.length; i++) {
+      const k = sorted[i];
+      const row = document.createElement("div");
+      row.className = "result-row" + (k.isPlayer ? " you" : "");
+      row.innerHTML = '<span class="result-rank">' + medals[i] + '</span>' +
+        '<span class="result-name">' + k.name + '</span>' +
+        '<span class="result-time">' + (k.finished ? formatTime(k.finishTime) : "未完赛") + '</span>';
+      dom.resultsList.appendChild(row);
+    }
+    dom.resultsTitle.textContent = (sorted[0].isPlayer) ? "冠军！🎉" : ("你的名次：第 " + player.rank + " 名");
+    dom.resultsScreen.classList.remove("hidden");
+    dom.hud.classList.add("hidden");
+  }
+
+  function resetPlayerToTrack() {
+    // 把玩家送回最近赛道中心点
+    const idx = nearestSample(player);
+    const s = track.samples[idx];
+    player.pos.set(s.pos.x, s.pos.y, s.pos.z);
+    player.heading = Math.atan2(s.tangent.x, s.tangent.z);
+    const tlen = Math.sqrt(s.tangent.x * s.tangent.x + s.tangent.z * s.tangent.z);
+    player.pitch = -Math.atan2(s.tangent.y, tlen);
+    player.speed = 0;
+    player.driftVisual = 0;
+    applyKartTransform(player);
+  }
+
+  function togglePause() {
+    if (gameState !== "racing") return;
+    paused = !paused;
+    dom.pauseScreen.classList.toggle("hidden", !paused);
+  }
+
+  // ============================================================
+  //  UI 更新
+  // ============================================================
+  let lapMsgTimer = 0;
+  function showLapMessage(text) {
+    dom.lapMessage.textContent = text;
+    dom.lapMessage.classList.add("show");
+    lapMsgTimer = 1.6;
+  }
+
+  function updateHUD() {
+    // 圈数
+    const curLap = clamp(player.lap + 1, 1, CFG.totalLaps);
+    dom.lapNum.textContent = curLap;
+    // 时间
+    dom.timeVal.textContent = formatTime(raceTime);
+    // 名次
+    dom.posVal.textContent = player.rank || 1;
+    // 速度
+    const dispSpeed = Math.round(Math.abs(player.speed) * 2.4);
+    dom.speedVal.textContent = dispSpeed;
+    // 速度弧
+    const frac = clamp(Math.abs(player.speed) / CFG.boostSpeed, 0, 1);
+    const arcLen = 188; // 半圆弧长 ≈ π × 60
+    dom.speedArc.setAttribute("stroke-dasharray", (frac * arcLen) + " 999");
+    // boost 指示
+    dom.boostIndicator.classList.toggle("hidden", player.boostTime <= 0 && player.turboTime <= 0 && player.nitroTime <= 0);
+    // 道具栏
+    if (player.item) {
+      dom.itemSlot.classList.add("has");
+      dom.itemSlot.innerHTML = '<span class="icon">' + ITEM_INFO[player.item].icon + '</span><span class="cap">Shift</span>';
+    } else {
+      dom.itemSlot.classList.remove("has");
+      dom.itemSlot.innerHTML = '<span class="cap">无道具</span>';
+    }
+    // 氮气槽
+    dom.nitroFill.style.height = player.nitro + "%";
+    dom.nitroFill.classList.toggle("ready", player.nitro >= CFG.nitroMax);
+    // 引擎声
+    audio.setEngine(Math.abs(player.speed) / CFG.maxSpeed, !player.locked && !player.finished);
+  }
+
+  function drawMinimap() {
+    const ctx = dom.minimap.getContext("2d");
+    const W = dom.minimap.width, H = dom.minimap.height;
+    ctx.clearRect(0, 0, W, H);
+    // 计算赛道包围盒
+    if (!track._bbox) {
+      let mnx = 1e9, mxx = -1e9, mnz = 1e9, mxz = -1e9;
+      for (const s of track.samples) {
+        mnx = Math.min(mnx, s.pos.x); mxx = Math.max(mxx, s.pos.x);
+        mnz = Math.min(mnz, s.pos.z); mxz = Math.max(mxz, s.pos.z);
+      }
+      track._bbox = { mnx: mnx, mxx: mxx, mnz: mnz, mxz: mxz };
+    }
+    const b = track._bbox;
+    const pad = 18;
+    const sx = (W - pad * 2) / (b.mxx - b.mnx);
+    const sz = (H - pad * 2) / (b.mxz - b.mnz);
+    const sc = Math.min(sx, sz);
+    const ox = pad - b.mnx * sc + ((W - pad * 2) - (b.mxx - b.mnx) * sc) / 2;
+    const oz = pad - b.mnz * sc + ((H - pad * 2) - (b.mxz - b.mnz) * sc) / 2;
+    const projX = (x) => x * sc + ox;
+    const projY = (z) => z * sc + oz;
+    // 赛道
+    ctx.lineWidth = 6; ctx.strokeStyle = "rgba(255,255,255,.85)";
+    ctx.beginPath();
+    for (let i = 0; i <= track.samples.length; i++) {
+      const s = track.samples[i % track.samples.length];
+      const X = projX(s.pos.x), Y = projY(s.pos.z);
+      if (i === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+    }
+    ctx.stroke();
+    ctx.lineWidth = 3; ctx.strokeStyle = "#4a4a52"; ctx.stroke();
+    // 起点
+    const sp = track.samples[0].pos;
+    ctx.fillStyle = "#ffe66d";
+    ctx.beginPath(); ctx.arc(projX(sp.x), projY(sp.z), 4, 0, Math.PI * 2); ctx.fill();
+    // 车手
+    for (const k of karts) {
+      ctx.fillStyle = "#" + KART_COLORS[k.colorIdx].main.toString(16).padStart(6, "0");
+      ctx.beginPath(); ctx.arc(projX(k.pos.x), projY(k.pos.z), k.isPlayer ? 5 : 4, 0, Math.PI * 2); ctx.fill();
+      if (k.isPlayer) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke(); }
+    }
+  }
+
+  // ============================================================
+  //  主循环
+  // ============================================================
+  function animate() {
+    requestAnimationFrame(animate);
+    let dt = clock.getDelta();
+    dt = Math.min(dt, 0.05);
+
+    if (paused) { renderer.render(scene, camera); return; }
+
+    if (gameState === "menu") {
+      updateMenuCamera(dt);
+    } else if (gameState === "countdown") {
+      tickCountdown(dt);
+      // 倒计时期间车辆静止（locked），仅相机围绕玩家预热
+      updateRacingCamera(dt);
+    } else if (gameState === "racing") {
+      raceTime += dt;
+      readPlayerInput();
+      updateKartPhysics(player, dt);
+      for (const k of karts) if (!k.isPlayer) updateAI(k, dt);
+      resolveCollisions();
+      for (const k of karts) {
+        updateProgress(k);
+        if (!k.finished) checkBoostPads(k);
+      }
+      updateItemBoxes(dt);
+      updateProjectiles(dt);
+      if (hitFlashTimer > 0) { hitFlashTimer -= dt; if (hitFlashTimer <= 0) dom.hitFlash.classList.remove("show"); }
+      updateRanks();
+      updateRacingCamera(dt);
+      updateHUD();
+      drawMinimap();
+      // 提示淡出
+      if (lapMsgTimer > 0) { lapMsgTimer -= dt; if (lapMsgTimer <= 0) dom.lapMessage.classList.remove("show"); }
+      // 全部完赛或玩家完赛后短暂展示
+      if (player.finished) {
+        // 玩家完赛后，继续模拟2秒后结算
+        if (!endRaceScheduled) { endRaceScheduled = true; setTimeout(endRace, 2200); }
+      }
+    } else if (gameState === "finished") {
+      // 结算页背景缓慢旋转
+      updateMenuCamera(dt);
+    }
+
+    renderer.render(scene, camera);
+  }
+  let endRaceScheduled = false;
+
+  // ============================================================
+  //  开始 / 重启
+  // ============================================================
+  function beginRace() {
+    audio.init();
+    paused = false;
+    dom.pauseScreen.classList.add("hidden");
+    // 清除上一局车手与残留投射物
+    for (const k of karts) scene.remove(k.mesh);
+    for (const m of projectiles) scene.remove(m.mesh); projectiles = [];
+    for (const m of mines) scene.remove(m.mesh); mines = [];
+    for (const box of itemBoxes) { box.active = true; box.respawn = 0; box.mesh.visible = true; }
+    setupRacers();
+    endRaceScheduled = false;
+    dom.menuScreen.classList.add("hidden");
+    dom.resultsScreen.classList.add("hidden");
+    dom.hud.classList.remove("hidden");
+    dom.lapTotal.textContent = CFG.totalLaps;
+    dom.posTotal.textContent = karts.length;
+    // 相机立即定位到玩家后方
+    const behind = new THREE.Vector3(
+      -Math.sin(player.heading) * CFG.camDist, CFG.camHeight, -Math.cos(player.heading) * CFG.camDist);
+    camera.position.copy(player.pos.clone().add(behind));
+    camera.lookAt(player.pos);
+    startCountdown();
+  }
+
+  function returnToMenu() {
+    gameState = "menu";
+    paused = false;
+    dom.pauseScreen.classList.add("hidden");
+    for (const k of karts) scene.remove(k.mesh);
+    for (const m of projectiles) scene.remove(m.mesh); projectiles = [];
+    for (const m of mines) scene.remove(m.mesh); mines = [];
+    dom.hitFlash.classList.remove("show");
+    karts = []; player = null;
+    dom.hud.classList.add("hidden");
+    dom.resultsScreen.classList.add("hidden");
+    dom.countdown.classList.add("hidden");
+    dom.menuScreen.classList.remove("hidden");
+  }
+
+  // ============================================================
+  //  启动
+  // ============================================================
+  function cacheDom() {
+    dom.loadingScreen = $("loading-screen");
+    dom.menuScreen = $("menu-screen");
+    dom.resultsScreen = $("results-screen");
+    dom.hud = $("hud");
+    dom.lapNum = $("lap-num");
+    dom.lapTotal = $("lap-total");
+    dom.timeVal = $("time-val");
+    dom.posVal = $("pos-val");
+    dom.posTotal = $("pos-total");
+    dom.speedVal = $("speed-val");
+    dom.speedArc = $("speed-arc");
+    dom.boostIndicator = $("boost-indicator");
+    dom.countdown = $("countdown");
+    dom.lapMessage = $("lap-message");
+    dom.minimap = $("minimap");
+    dom.resultsList = $("results-list");
+    dom.resultsTitle = $("results-title");
+    dom.pauseScreen = $("pause-screen");
+    dom.itemSlot = $("item-slot");
+    dom.nitroFill = $("nitro-fill");
+    dom.hitFlash = $("hit-flash");
+  }
+
+  function bindUI() {
+    document.querySelectorAll(".diff-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".diff-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        difficulty = btn.dataset.diff;
+      });
+    });
+    $("start-btn").addEventListener("click", beginRace);
+    $("restart-btn").addEventListener("click", beginRace);
+    $("menu-btn").addEventListener("click", returnToMenu);
+    $("resume-btn").addEventListener("click", togglePause);
+    $("quit-btn").addEventListener("click", function () { paused = false; dom.pauseScreen.classList.add("hidden"); returnToMenu(); });
+  }
+
+  function start() {
+    cacheDom();
+    initThree();
+    buildTrack();
+    bindInput();
+    bindUI();
+    dom.loadingScreen.classList.add("hidden");
+    dom.menuScreen.classList.remove("hidden");
+    gameState = "menu";
+    animate();
+  }
+
+  // 等待 THREE 加载
+  if (window.THREE) start();
+  else window.addEventListener("load", start);
+
+})();
+</script>
+</body>
+</html>
